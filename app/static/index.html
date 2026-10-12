@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f8fb; --surface:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e8ebf1; --soft:#f3f5f9;
+  --brand:#2563eb; --brand-dark:#1d4ed8; --brand-soft:#eef3ff;
+  --ok:#047857; --ok-bg:#d1fae5; --info:#1d4ed8; --info-bg:#dbeafe;
+  --bad:#b91c1c; --bad-bg:#fee2e2; --idle:#475569; --idle-bg:#f1f5f9;
+  --warn:#92400e; --warn-bg:#fffbeb; --warn-line:#fde68a;
+  --shadow:0 1px 2px rgba(15,23,42,.04);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button{font:inherit}
+
+.app{display:flex;height:100vh;height:100dvh}
+
+/* Sidebar */
+.side{width:232px;flex:none;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+.brand span{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.navlist{display:flex;flex-direction:column;gap:4px}
+.nav{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:0;background:none;border-radius:10px;color:var(--muted);font-weight:500;cursor:pointer;text-align:left}
+.nav:hover{background:var(--soft);color:var(--ink)}
+.nav.active{background:var(--brand-soft);color:var(--brand-dark);font-weight:600}
+.nav svg{flex:none}
+.nav .lbl{flex:1}
+.nbadge{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--bad-bg);color:var(--bad)}
+.nbadge.amber{background:#fef3c7;color:var(--warn)}
+.side-foot{margin-top:auto;padding:12px 8px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px #d1fae5;flex:none}
+
+/* Main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:68px;flex:none;display:flex;align-items:center;gap:14px;padding:0 32px;border-bottom:1px solid var(--line);background:var(--surface)}
+.top h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
+.top p{margin:0;color:var(--muted);font-size:13px}
+.ap-pill{margin-left:auto;font-size:12px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer;border:1px solid var(--line);background:var(--idle-bg);color:var(--idle)}
+.ap-pill.on{background:var(--ok-bg);border-color:#a7f3d0;color:var(--ok)}
+.ap-pill.pending{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.views{flex:1;min-height:0;position:relative}
+.view{display:none;position:absolute;inset:0;overflow-y:auto;padding:28px 32px 40px}
+.view.active{display:block}
+.view.chatview{padding:0}
+.view.chatview.active{display:flex;flex-direction:column}
+.wrap{max-width:860px;margin:0 auto}
+
+/* Buttons */
+.btn{font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;transition:background .15s,border-color .15s}
+.btn:hover{background:var(--idle-bg)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand-dark)}
+.btn.sm{padding:6px 12px;font-size:12px;border-radius:8px;white-space:nowrap}
+.btn.wa{color:#047857;border-color:#a7f3d0;background:#ecfdf5}
+.btn.wa:hover{background:#d1fae5}
+.btn:disabled{opacity:.55;cursor:default}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* Chat */
+.followups{display:none;flex:none;padding:10px 24px;background:var(--warn-bg);border-bottom:1px solid var(--warn-line)}
+.followups.show{display:block}
+.fu-item{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fu-text{font-size:13px;min-width:0;color:var(--warn)}
+.fu-text b{font-weight:600;color:var(--ink)}
+.fu-more{max-width:720px;margin:4px auto 0;font-size:12px;color:var(--warn)}
+.fu-more button{border:0;background:none;color:var(--brand-dark);font-weight:600;cursor:pointer;padding:0}
+#log{flex:1;min-height:0;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:18px}
+.row{display:flex;gap:12px;align-items:flex-start;width:100%;max-width:720px;margin-left:auto;margin-right:auto}
+.row.user{justify-content:flex-end}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.bubble{max-width:82%;padding:11px 15px;border-radius:16px;white-space:pre-wrap;word-wrap:break-word}
+.row.user .bubble{background:var(--brand);color:#fff;border-bottom-right-radius:5px}
+.row.bot .bubble{background:var(--soft);border-top-left-radius:5px}
+.row.error .bubble{background:var(--bad-bg);color:var(--bad)}
+.bubble a{color:var(--brand-dark);font-weight:600}
+.typing-dots{display:inline-flex;gap:4px;align-items:center;height:22px}
+.typing-dots span{width:6px;height:6px;border-radius:50%;background:#94a3b8;animation:blink 1.2s infinite ease-in-out}
+.typing-dots span:nth-child(2){animation-delay:.15s}
+.typing-dots span:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.card-row{padding-left:44px}
+.card{width:min(460px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 6px 20px rgba(15,23,42,.06)}
+.card-title{font-weight:600;margin-bottom:12px}
+.details{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;margin:0 0 16px;padding:14px;background:var(--soft);border-radius:10px;font-size:14px}
+.details dt{color:var(--muted)}
+.details dd{margin:0;overflow-wrap:anywhere;font-weight:500}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+#empty{margin:auto;text-align:center;max-width:560px;padding:12px}
+.empty-icon{width:56px;height:56px;border-radius:16px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 16px}
+#empty h2{margin:0 0 6px;font-size:22px;letter-spacing:-.02em}
+#empty p{margin:0 0 22px;color:var(--muted)}
+.chips{display:grid;gap:10px}
+.chip{text-align:left;padding:13px 16px;border:1px solid var(--line);background:var(--surface);border-radius:12px;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
+.chip:hover{border-color:var(--brand);background:var(--brand-soft)}
+
+.composer{flex:none;padding:12px 20px 22px}
+form{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:8px;box-shadow:0 2px 10px rgba(15,23,42,.05)}
+form:focus-within{border-color:#bcd0ff}
+textarea{flex:1;resize:none;font:inherit;border:0;outline:none;padding:9px 8px;height:40px;max-height:120px;background:transparent;color:var(--ink)}
+textarea::placeholder{color:#94a3b8}
+.ibtn{width:40px;height:40px;border-radius:12px;border:0;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;flex:none;font-size:12px;font-weight:700}
+.ibtn:hover{background:var(--idle-bg);color:var(--ink)}
+.ibtn.rec{background:var(--bad-bg);color:var(--bad);animation:pulse 1.2s infinite}
+.ibtn.send{background:var(--brand);color:#fff}
+.ibtn.send:hover{background:var(--brand-dark)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(185,28,28,.25)}50%{box-shadow:0 0 0 6px rgba(185,28,28,0)}}
+
+/* Cards and sections */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.stat-label{color:var(--muted);font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.stat-label i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.stat-value{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
+.stat-sub{color:var(--muted);font-size:12px}
+.seg{display:inline-flex;background:var(--idle-bg);border-radius:10px;padding:4px;gap:2px;margin-bottom:16px;max-width:100%;overflow-x:auto}
+.segbtn{border:0;background:none;padding:7px 14px;border-radius:8px;font-weight:500;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.segbtn:hover{color:var(--ink)}
+.segbtn.active{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.segbtn em{font-style:normal;color:var(--muted);font-weight:500;margin-left:5px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.hint{color:var(--muted);margin:28px 0;text-align:center}
+
+/* Invoice list */
+.inv{border-bottom:1px solid var(--line)}
+.inv:last-child{border-bottom:0}
+.inv-head{width:100%;display:grid;grid-template-columns:44px minmax(0,1fr) auto 18px;gap:14px;align-items:center;padding:16px 20px;border:0;background:none;text-align:left;cursor:pointer;color:inherit}
+.inv-head:hover{background:#fafbfd}
+.inv-avatar{width:44px;height:44px;border-radius:50%;background:var(--brand-soft);color:var(--brand-dark);display:grid;place-items:center;font-weight:600;font-size:13px}
+.inv-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inv-sub{color:var(--muted);font-size:13px}
+.inv-sub .late{color:var(--bad);font-weight:500}
+.inv-right{text-align:right}
+.inv-amt{font-weight:600;margin-bottom:3px;white-space:nowrap}
+.chev{color:#94a3b8;transition:transform .15s}
+.inv.open .chev{transform:rotate(90deg)}
+.inv-body{padding:0 20px 18px 78px}
+.inv-meta{color:var(--muted);font-size:13px;margin-bottom:12px}
+.qr-box{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;display:inline-block;text-align:center}
+.qr-box img{display:block;width:150px;height:150px}
+.qr-box small{display:block;color:var(--muted);margin-top:4px;font-size:12px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.info{background:var(--info-bg);color:var(--info)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.idle{background:var(--idle-bg);color:var(--idle)}
+
+/* Activity */
+.event{display:flex;gap:14px;padding:16px 20px;border-bottom:1px solid var(--line);align-items:flex-start}
+.event:last-child{border-bottom:0}
+.event-icon{width:28px;height:28px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:grid;place-items:center;flex:none}
+.event-text{font-weight:500}
+.event small{display:block;color:var(--muted);font-weight:400}
+
+/* Insights */
+.ins-metrics{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.ins-metric{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.ins-metric span{display:block;color:var(--muted);font-size:13px}
+.ins-metric b{font-size:24px;letter-spacing:-.02em}
+.sec-title{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 12px}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+.chart{display:flex;align-items:flex-end;gap:14px;height:150px;padding:0 4px;border-bottom:1px solid var(--line)}
+.chart-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:0}
+.bars{display:flex;align-items:flex-end;gap:4px;height:100%;width:100%;justify-content:center}
+.bar{width:40%;max-width:22px;border-radius:5px 5px 0 0;min-height:2px;display:block}
+.bar.inv{background:#bfdbfe}
+.bar.paid{background:#10b981}
+.chart-labels{display:flex;gap:14px;padding:6px 4px 0}
+.chart-labels span{flex:1;text-align:center;font-size:11px;color:var(--muted);white-space:nowrap}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:12px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.owed{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+.owed:last-child{border-bottom:0;padding-bottom:0}
+.ai-box{background:var(--brand-soft);border:1px solid #dbe7ff;border-radius:14px;padding:20px}
+.ai-box p{margin:0 0 14px;white-space:pre-wrap}
+.ai-label{font-size:12px;font-weight:700;color:var(--brand-dark);margin-bottom:8px;display:block}
+
+/* Autopilot */
+.switch{position:relative;display:inline-block;width:46px;height:26px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s;cursor:pointer}
+.slider::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch input:checked + .slider{background:var(--brand)}
+.switch input:checked + .slider::before{transform:translateX(20px)}
+.switch input:focus-visible + .slider{outline:2px solid var(--brand);outline-offset:2px}
+.ap-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px}
+.ap-head b{font-size:16px}
+.ap-head small{display:block;color:var(--muted)}
+.ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:500}
+.field.wide{grid-column:1/-1}
+.field select,.field input{font:inherit;color:var(--ink);padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);width:100%}
+.field small{font-weight:400}
+.ap-note{font-size:13px;color:var(--muted);margin:0 0 16px}
+.ap-run{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ap-status{font-size:13px;font-weight:500;color:var(--brand-dark)}
+.ap-card{border:1px solid var(--warn-line);background:var(--warn-bg);border-radius:12px;padding:16px;margin-bottom:12px}
+.ap-card-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}
+.ap-card-top small{display:block;color:var(--muted)}
+.ap-msg{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;white-space:pre-wrap;max-height:150px;overflow:auto;margin-bottom:12px}
+.log-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log-item:last-child{border-bottom:0;padding-bottom:0}
+.log-item small{display:block;color:var(--muted)}
+.ld{width:8px;height:8px;border-radius:50%;margin-top:8px;flex:none;background:#94a3b8}
+.ld.sent{background:#10b981}
+.ld.queued{background:#f59e0b}
+.ld.error{background:#ef4444}
+
+.promise-box{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.promise-box textarea{width:100%;height:76px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--surface);margin:8px 0 10px;resize:vertical}
+.promise-box small{display:block;color:var(--muted)}
+.promise-note{font-size:13px;margin:6px 0 10px}
+.promise-result{padding:12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);margin-bottom:10px;font-size:14px}
+.promise-line{margin-top:4px}
+
+/* Mobile */
+@media (max-width:860px){
+  .app{flex-direction:column}
+  .side{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;height:64px;flex-direction:row;padding:6px 8px;border-right:0;border-top:1px solid var(--line);z-index:10}
+  .brand,.side-foot{display:none}
+  .navlist{flex-direction:row;width:100%;gap:2px}
+  .nav{flex:1;flex-direction:column;gap:2px;padding:6px 2px;font-size:11px;justify-content:center;position:relative}
+  .nav .lbl{flex:none}
+  .nbadge{position:absolute;top:2px;right:8px;padding:0 6px;font-size:10px}
+  .main{padding-bottom:64px}
+  .top{padding:0 18px;height:60px}
+  .top p{display:none}
+  .view{padding:20px 16px 32px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .inv-head{grid-template-columns:40px minmax(0,1fr) auto;padding:14px 14px}
+  .chev{display:none}
+  .inv-avatar{width:40px;height:40px}
+  .inv-body{padding:0 14px 16px}
+  .ap-grid,.ins-metrics{grid-template-columns:1fr}
+  .composer{padding:10px 12px 14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="side" aria-label="Main">
+    <div class="brand"><div class="logo">IC</div><span>Invoice Copilot</span></div>
+    <div class="navlist" id="nav"></div>
+    <div class="side-foot"><span class="dot"></span>PayPal Sandbox</div>
+  </nav>
+
+  <div class="main">
+    <header class="top">
+      <div>
+        <h1 id="view-title">Assistant</h1>
+        <p id="view-sub"></p>
+      </div>
+      <button class="ap-pill" id="ap-pill" type="button">Autopilot off</button>
+    </header>
+
+    <div class="views">
+      <!-- Assistant -->
+      <section class="view chatview active" id="v-assistant">
+        <div class="followups" id="followups"></div>
+        <div id="log">
+          <div id="empty">
+            <div class="empty-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h2>How can I help you get paid?</h2>
+            <p>Describe an invoice in English, Hindi or Hinglish. You can also speak it.</p>
+            <div class="chips" id="chips"></div>
+          </div>
+        </div>
+        <div class="composer">
+          <form id="form">
+            <button class="ibtn" type="button" id="mic" aria-label="Speak your message" title="Speak">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            <button class="ibtn" type="button" id="lang" aria-label="Voice language" title="Voice language">EN</button>
+            <textarea id="input" placeholder="Message Invoice Copilot..." rows="1" aria-label="Message"></textarea>
+            <button class="ibtn send" type="submit" aria-label="Send">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Invoices -->
+      <section class="view" id="v-invoices">
+        <div class="wrap">
+          <div class="stats">
+            <div class="stat"><div class="stat-label"><i style="background:#2563eb"></i>Total invoiced</div><div class="stat-value" id="s-total">$0.00</div><div class="stat-sub" id="s-total-n">0 invoices</div></div>
+            <div class="stat"><div class="stat-label"><i style="background:#10b981"></i>Paid</div><div class="stat-value" id="s-paid">$0.00</div><div class="stat-sub" id="s-paid-n">0 invoices</div></div>
+            <div class="stat"><div class="stat-label"><i style="background:#f59e0b"></i>Awaiting</div><div class="stat-value" id="s-wait">$0.00</div><div class="stat-sub" id="s-wait-n">0 invoices</div></div>
+            <div class="stat"><div class="stat-label"><i style="background:#ef4444"></i>Overdue</div><div class="stat-value" id="s-over">$0.00</div><div class="stat-sub" id="s-over-n">0 invoices</div></div>
+          </div>
+          <div class="seg" id="tabs" role="tablist"></div>
+          <div class="panel" id="invoices"></div>
+        </div>
+      </section>
+
+      <!-- Insights -->
+      <section class="view" id="v-insights"><div class="wrap" id="insights"></div></section>
+
+      <!-- Autopilot -->
+      <section class="view" id="v-autopilot"><div class="wrap" id="autopilot"></div></section>
+
+      <!-- Activity -->
+      <section class="view" id="v-activity">
+        <div class="wrap"><div class="panel" id="events"></div></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = $('#log'), input = $('#input');
+const sid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
+const UNPAID = ['SENT', 'UNPAID', 'PARTIALLY_PAID', 'PAYMENT_PENDING'];
+const PAID = ['PAID', 'MARKED_AS_PAID'];
+const ICONS = {
+  assistant: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  invoices: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>',
+  insights: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  autopilot: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
+};
+const VIEWS = [
+  ['assistant', 'Assistant', 'Create invoices and ask about your payments'],
+  ['invoices', 'Invoices', 'Everything you have sent and what is still unpaid'],
+  ['insights', 'Insights', 'How your cash flow looks'],
+  ['autopilot', 'Autopilot', 'Let the assistant chase late payments for you'],
+  ['activity', 'Activity', 'Payments as they happen']
+];
+let invoicesData = [];
+let filter = 'all';
+let view = 'assistant';
+let busy = false;
+let aiSummary = '';
+let aiLoading = false;
+let apData = null;
+let apNote = '';
+let apBusy = false;
+const qrOpen = new Set();
+const openRows = new Set();
+let promisesData = {};
+const promiseUI = {};
+
+function el(tag, cls, text){
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function money(n, cur){
+  try { return new Intl.NumberFormat('en-US', {style: 'currency', currency: cur || 'USD'}).format(n); }
+  catch { return '$' + Number(n).toFixed(2); }
+}
+function initials(name){
+  const p = String(name || '?').trim().split(/\s+/);
+  return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
+}
+function daysLate(due){
+  const d = new Date(due + 'T00:00:00');
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.floor((t - d) / 86400000);
+}
+function resizeInput(){
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+}
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  if (!r.ok){
+    let d = ''; try { d = (await r.json()).detail; } catch {}
+    throw new Error(typeof d === 'string' && d ? d : r.statusText);
+  }
+  return r.json();
+}
+
+/* ---------- Navigation ---------- */
+function renderNav(){
+  const box = $('#nav'); box.replaceChildren();
+  const overdue = invoicesData.filter(i => i.overdue).length;
+  const queued = apData ? apData.queue.length : 0;
+  VIEWS.forEach(([key, label]) => {
+    const b = el('button', 'nav' + (view === key ? ' active' : ''));
+    b.type = 'button';
+    b.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[key]}</svg>`;
+    b.appendChild(el('span', 'lbl', label));
+    if (key === 'invoices' && overdue) b.appendChild(el('span', 'nbadge', String(overdue)));
+    if (key === 'autopilot' && queued) b.appendChild(el('span', 'nbadge amber', String(queued)));
+    b.onclick = () => openView(key);
+    box.appendChild(b);
+  });
+}
+function openView(key){
+  view = key;
+  VIEWS.forEach(([k, label, sub]) => {
+    $('#v-' + k).classList.toggle('active', k === key);
+    if (k === key){ $('#view-title').textContent = label; $('#view-sub').textContent = sub; }
+  });
+  renderNav();
+  if (key === 'insights') renderInsights();
+  if (key === 'autopilot') loadAutopilot();
+  if (key === 'assistant') setTimeout(() => { log.scrollTop = log.scrollHeight; }, 0);
+}
+
+/* ---------- Chat ---------- */
+function addMsg(role, text, typing){
+  const empty = $('#empty'); if (empty) empty.remove();
+  const isBot = role !== 'user';
+  const row = el('div', 'row ' + role);
+  if (isBot) row.appendChild(el('div', 'avatar', 'IC'));
+  const bubble = el('div', 'bubble');
+  if (typing){
+    const d = el('span', 'typing-dots');
+    d.append(el('span'), el('span'), el('span'));
+    bubble.appendChild(d);
+  } else {
+    bubble.textContent = text;
+  }
+  row.appendChild(bubble);
+  row.bubble = bubble;
+  log.appendChild(row); log.scrollTop = log.scrollHeight;
+  return row;
+}
+
+async function send(text){
+  text = (text || '').trim();
+  if (!text || busy) return;
+  busy = true;
+  if (view !== 'assistant') openView('assistant');
+  addMsg('user', text);
+  input.value = ''; resizeInput();
+  const wait = addMsg('bot', '', true);
+  try {
+    const d = await api('/api/chat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({session_id: sid, message: text})
+    });
+    wait.remove();
+    if (d.reply) addMsg('bot', d.reply);
+    d.pending.forEach(renderPending);
+  } catch (e) {
+    wait.remove(); addMsg('bot error', e.message);
+  } finally { busy = false; }
+}
+
+function renderPending(p){
+  const row = el('div', 'row card-row');
+  const card = el('div', 'card');
+  card.appendChild(el('div', 'card-title', p.title));
+  const dl = el('dl', 'details');
+  p.details.forEach(([k, v]) => { dl.appendChild(el('dt', '', k)); dl.appendChild(el('dd', '', v)); });
+  card.appendChild(dl);
+  const actions = el('div', 'actions');
+  const ok = el('button', 'btn primary', 'Confirm and send');
+  const no = el('button', 'btn', 'Cancel');
+  ok.onclick = async () => {
+    ok.disabled = no.disabled = true; ok.textContent = 'Sending...';
+    try {
+      const r = await api('/api/confirm/' + p.id, {method: 'POST'});
+      row.remove();
+      const m = addMsg('bot', r.message);
+      if (r.link){
+        m.bubble.appendChild(document.createElement('br'));
+        const a = el('a', '', 'Open payment page');
+        a.href = r.link; a.target = '_blank'; a.rel = 'noopener';
+        m.bubble.appendChild(a);
+        m.bubble.appendChild(document.createTextNode('  ·  '));
+        const w = el('a', '', 'Share on WhatsApp');
+        w.href = 'https://wa.me/?text=' + encodeURIComponent('Here is your invoice. You can pay securely here: ' + r.link);
+        w.target = '_blank'; w.rel = 'noopener';
+        m.bubble.appendChild(w);
+      }
+      refresh();
+    } catch (e) {
+      ok.disabled = no.disabled = false; ok.textContent = 'Confirm and send';
+      addMsg('bot error', e.message);
+    }
+  };
+  no.onclick = async () => {
+    try { await api('/api/cancel/' + p.id, {method: 'POST'}); } catch {}
+    row.remove(); addMsg('bot', 'Cancelled. Nothing was sent.');
+  };
+  actions.append(ok, no); card.appendChild(actions);
+  row.appendChild(card);
+  log.appendChild(row); log.scrollTop = log.scrollHeight;
+}
+
+/* ---------- Follow-up strip ---------- */
+function toneFor(late){
+  if (late <= 7) return 'friendly';
+  if (late <= 21) return 'firm but polite';
+  return 'firm and final';
+}
+function renderFollowups(){
+  const box = $('#followups');
+  box.replaceChildren();
+  const od = invoicesData
+    .filter(i => i.overdue && i.due_date)
+    .map(i => ({...i, late: daysLate(i.due_date)}))
+    .sort((a, b) => b.late - a.late);
+  if (!od.length){ box.classList.remove('show'); return; }
+  box.classList.add('show');
+  const i = od[0], tone = toneFor(i.late);
+  const row = el('div', 'fu-item');
+  const t = el('div', 'fu-text');
+  t.append(el('b', '', i.client || 'Unknown client'), document.createTextNode(` · ${money(i.amount, i.currency)} · ${i.late} ${i.late === 1 ? 'day' : 'days'} late`));
+  const btn = el('button', 'btn sm primary', 'Draft reminder');
+  btn.type = 'button';
+  btn.onclick = () => send(`Write a ${tone} reminder for invoice ${i.number} (${i.client}), which is ${i.late} days overdue`);
+  row.append(t, btn);
+  box.appendChild(row);
+  if (od.length > 1){
+    const more = el('div', 'fu-more', `${od.length - 1} more overdue. `);
+    const v = el('button', '', 'View invoices'); v.type = 'button';
+    v.onclick = () => { filter = 'overdue'; openView('invoices'); renderTabs(); renderInvoices(); };
+    more.appendChild(v);
+    box.appendChild(more);
+  }
+}
+
+/* ---------- Invoices ---------- */
+function pillFor(i){
+  if (i.overdue) return ['Overdue', 'bad'];
+  const s = i.status || '';
+  if (PAID.includes(s)) return ['Paid', 'ok'];
+  if (s === 'PARTIALLY_PAID') return ['Partly paid', 'info'];
+  if (UNPAID.includes(s)) return ['Awaiting payment', 'info'];
+  if (s === 'DRAFT') return ['Draft', 'idle'];
+  return [s.replaceAll('_', ' ').toLowerCase(), 'idle'];
+}
+function updateStats(d){
+  const cur = (d[0] && d[0].currency) || 'USD';
+  const sum = list => list.reduce((t, i) => t + (parseFloat(i.amount) || 0), 0);
+  const paid = d.filter(i => PAID.includes(i.status));
+  const over = d.filter(i => i.overdue);
+  const wait = d.filter(i => UNPAID.includes(i.status) && !i.overdue);
+  const set = (id, list) => {
+    $('#s-' + id).textContent = money(sum(list), cur);
+    $('#s-' + id + '-n').textContent = list.length + (list.length === 1 ? ' invoice' : ' invoices');
+  };
+  set('total', d); set('paid', paid); set('wait', wait); set('over', over);
+}
+function filtered(){
+  if (filter === 'paid') return invoicesData.filter(i => PAID.includes(i.status));
+  if (filter === 'unpaid') return invoicesData.filter(i => UNPAID.includes(i.status));
+  if (filter === 'overdue') return invoicesData.filter(i => i.overdue);
+  return invoicesData;
+}
+function renderTabs(){
+  const counts = {
+    all: invoicesData.length,
+    unpaid: invoicesData.filter(i => UNPAID.includes(i.status)).length,
+    paid: invoicesData.filter(i => PAID.includes(i.status)).length,
+    overdue: invoicesData.filter(i => i.overdue).length
+  };
+  const box = $('#tabs'); box.replaceChildren();
+  [['all', 'All'], ['unpaid', 'Unpaid'], ['paid', 'Paid'], ['overdue', 'Overdue']].forEach(([key, label]) => {
+    const b = el('button', 'segbtn' + (filter === key ? ' active' : ''), label);
+    b.type = 'button'; b.setAttribute('role', 'tab');
+    b.appendChild(el('em', '', String(counts[key])));
+    b.onclick = () => { filter = key; renderTabs(); renderInvoices(); };
+    box.appendChild(b);
+  });
+}
+function promiseBadge(p){
+  if (!p) return null;
+  const d = new Date(p.promised_date + 'T00:00:00').toLocaleDateString('en-GB', {day: 'numeric', month: 'short'});
+  if (p.status === 'active') return [`Promised by ${d}`, 'info'];
+  if (p.status === 'broken') return [`Promise broken (was ${d})`, 'bad'];
+  if (p.status === 'kept') return ['Promise kept', 'ok'];
+  if (p.status === 'paid_late') return ['Paid after the promised date', 'idle'];
+  return null;
+}
+
+function promiseSection(i){
+  const st = promiseUI[i.id] || (promiseUI[i.id] = {text: '', result: null, busy: false, error: ''});
+  const p = promisesData[i.id];
+  const box = el('div', 'promise-box');
+  box.appendChild(el('b', '', 'Did the client promise to pay?'));
+
+  if (p && p.status === 'active'){
+    box.appendChild(el('p', 'promise-note', `Promised by ${p.promised_date}.` + (p.note ? ` "${p.note}"` : '') + ' Autopilot will not send reminders until then.'));
+    const rm = el('button', 'btn sm', 'Remove promise');
+    rm.type = 'button';
+    rm.onclick = async () => {
+      try { await api('/api/promises/' + encodeURIComponent(i.id), {method: 'DELETE'}); } catch {}
+      await loadPromises(); renderInvoices();
+    };
+    box.appendChild(rm);
+    return box;
+  }
+
+  if (p && p.status === 'broken'){
+    box.appendChild(el('p', 'promise-note', `They promised to pay by ${p.promised_date} but have not. The next reminder will mention it and use a firmer tone.`));
+  } else {
+    box.appendChild(el('small', '', 'Paste the client reply. The AI finds the date, and Autopilot holds reminders until then.'));
+  }
+
+  const ta = document.createElement('textarea');
+  ta.placeholder = 'e.g. "Sorry for the delay, I will pay by Friday"';
+  ta.value = st.text;
+  ta.setAttribute('aria-label', 'Client reply');
+  ta.oninput = () => { st.text = ta.value; };
+  box.appendChild(ta);
+  if (st.error) box.appendChild(el('p', 'promise-note', st.error));
+
+  if (st.result){
+    const r = st.result;
+    const res = el('div', 'promise-result');
+    res.appendChild(el('div', '', r.summary));
+    if (r.intent === 'dispute') res.appendChild(el('div', 'promise-note', 'The client seems to dispute this invoice. Consider replying personally.'));
+    if (r.promised_date){
+      res.appendChild(el('div', 'promise-note', `Promised date: ${r.promised_date}`));
+      const act = el('div', 'actions');
+      const save = el('button', 'btn sm primary', 'Save promise');
+      const drop = el('button', 'btn sm', 'Discard');
+      save.type = drop.type = 'button';
+      save.onclick = async () => {
+        save.disabled = drop.disabled = true;
+        try {
+          await api('/api/promises', {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({invoice_id: i.id, promised_date: r.promised_date, note: r.summary})});
+          st.result = null; st.text = ''; st.error = '';
+        } catch (e) { st.error = 'Could not save: ' + e.message; }
+        await loadPromises(); renderInvoices();
+      };
+      drop.onclick = () => { st.result = null; renderInvoices(); };
+      act.append(save, drop);
+      res.appendChild(act);
+    } else {
+      res.appendChild(el('div', 'promise-note', 'No clear date found, so Autopilot keeps its normal schedule.'));
+    }
+    box.appendChild(res);
+  }
+
+  const go = el('button', 'btn sm primary', st.busy ? 'Reading...' : 'Understand reply');
+  go.type = 'button'; go.disabled = st.busy;
+  go.onclick = async () => {
+    const text = st.text.trim();
+    if (text.length < 3){ st.error = 'Paste the client reply first.'; renderInvoices(); return; }
+    st.busy = true; st.error = ''; st.result = null; renderInvoices();
+    try {
+      st.result = await api('/api/promises/parse', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({invoice_id: i.id, reply: text})});
+    } catch (e) { st.error = 'Could not read the reply: ' + e.message; }
+    st.busy = false; renderInvoices();
+  };
+  box.appendChild(go);
+  return box;
+}
+
+function renderInvoices(){
+  const box = $('#invoices');
+  const fa = document.activeElement;
+  if (fa && box.contains(fa) && fa.tagName === 'TEXTAREA') return;
+  box.replaceChildren();
+  const d = filtered();
+  if (!d.length){
+    box.appendChild(el('p', 'hint', invoicesData.length ? 'No invoices in this view.' : 'No invoices yet. Ask the assistant to create one.'));
+    return;
+  }
+  d.forEach(i => {
+    const open = openRows.has(i.id);
+    const row = el('div', 'inv' + (open ? ' open' : ''));
+
+    const head = el('button', 'inv-head');
+    head.type = 'button';
+    head.setAttribute('aria-expanded', String(open));
+    head.appendChild(el('div', 'inv-avatar', initials(i.client)));
+    const info = el('div');
+    info.appendChild(el('div', 'inv-name', i.client || 'Unknown client'));
+    const sub = el('div', 'inv-sub', `#${i.number} · Due ${i.due_date || 'not set'}`);
+    if (i.overdue && i.due_date){
+      const n = daysLate(i.due_date);
+      sub.appendChild(document.createTextNode(' · '));
+      sub.appendChild(el('span', 'late', `${n} ${n === 1 ? 'day' : 'days'} late`));
+    }
+    info.appendChild(sub);
+    const pb = promiseBadge(promisesData[i.id]);
+    if (pb){
+      const line = el('div', 'promise-line');
+      line.appendChild(el('span', 'pill ' + pb[1], pb[0]));
+      info.appendChild(line);
+    }
+    head.appendChild(info);
+    const right = el('div', 'inv-right');
+    right.appendChild(el('div', 'inv-amt', money(i.amount || 0, i.currency)));
+    const [label, cls] = pillFor(i);
+    right.appendChild(el('span', 'pill ' + cls, label));
+    head.appendChild(right);
+    const chev = el('span', 'chev');
+    chev.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    head.appendChild(chev);
+    head.onclick = () => { openRows.has(i.id) ? openRows.delete(i.id) : openRows.add(i.id); renderInvoices(); };
+    row.appendChild(head);
+
+    if (open){
+      const body = el('div', 'inv-body');
+      const meta = [i.email, i.invoice_date ? 'Issued ' + i.invoice_date : ''].filter(Boolean).join(' · ');
+      if (meta) body.appendChild(el('div', 'inv-meta', meta));
+      if (UNPAID.includes(i.status)){
+        const act = el('div', 'actions');
+        if (i.pay_url){
+          const a = el('a', 'btn sm primary', 'Open payment page');
+          a.href = i.pay_url; a.target = '_blank'; a.rel = 'noopener';
+          act.appendChild(a);
+        }
+        const r = el('button', 'btn sm', 'Remind');
+        r.type = 'button';
+        r.onclick = () => send(`Write a friendly reminder for invoice ${i.number} (${i.client})`);
+        act.appendChild(r);
+        if (i.pay_url){
+          const first = String(i.client || '').includes('@') ? 'there' : String(i.client || 'there').split(' ')[0];
+          const msg = `Hi ${first}, here is your invoice #${i.number} for ${money(i.amount || 0, i.currency)}. You can pay securely here: ${i.pay_url}`;
+          const wa = el('a', 'btn sm wa', 'WhatsApp');
+          wa.href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+          wa.target = '_blank'; wa.rel = 'noopener';
+          act.appendChild(wa);
+          const q = el('button', 'btn sm', qrOpen.has(i.id) ? 'Hide QR' : 'QR code');
+          q.type = 'button';
+          q.onclick = () => { qrOpen.has(i.id) ? qrOpen.delete(i.id) : qrOpen.add(i.id); renderInvoices(); };
+          act.appendChild(q);
+        }
+        body.appendChild(act);
+        if (i.pay_url && qrOpen.has(i.id)){
+          const qb = el('div', 'qr-box');
+          const img = document.createElement('img');
+          img.src = '/api/qr?url=' + encodeURIComponent(i.pay_url);
+          img.alt = `QR code to pay invoice ${i.number}`;
+          qb.appendChild(img);
+          qb.appendChild(el('small', '', 'Scan to pay'));
+          body.appendChild(qb);
+        }
+        body.appendChild(promiseSection(i));
+      } else if (PAID.includes(i.status)){
+        body.appendChild(el('div', 'inv-meta', 'This invoice has been paid.'));
+      }
+      row.appendChild(body);
+    }
+    box.appendChild(row);
+  });
+}
+async function loadInvoices(){
+  try {
+    invoicesData = await api('/api/invoices');
+    updateStats(invoicesData);
+    renderTabs();
+    renderInvoices();
+    renderFollowups();
+    renderNav();
+    if (view === 'insights') renderInsights();
+  } catch (e) {
+    $('#invoices').replaceChildren(el('p', 'hint', 'Could not load invoices: ' + e.message));
+  }
+}
+
+/* ---------- Activity ---------- */
+async function loadEvents(){
+  const box = $('#events');
+  try {
+    const d = await api('/api/events');
+    box.replaceChildren();
+    if (!d.length){
+      box.appendChild(el('p', 'hint', 'Payments will appear here as soon as they happen.'));
+      return;
+    }
+    d.forEach(ev => {
+      const row = el('div', 'event');
+      const icon = el('div', 'event-icon');
+      icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      const text = el('div', 'event-text', ev.summary);
+      text.appendChild(el('small', '', new Date(ev.time).toLocaleTimeString()));
+      row.append(icon, text);
+      box.appendChild(row);
+    });
+  } catch (e) { /* keep last state */ }
+}
+
+/* ---------- Insights ---------- */
+function fmtDate(d){
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function weekStart(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+function renderInsights(){
+  const box = $('#insights');
+  box.replaceChildren();
+  if (!invoicesData.length){
+    box.appendChild(el('p', 'hint', 'Create some invoices to see insights.'));
+    return;
+  }
+  const cur = invoicesData[0].currency || 'USD';
+  const amt = i => parseFloat(i.amount) || 0;
+  const total = invoicesData.reduce((t, i) => t + amt(i), 0);
+  const paid = invoicesData.filter(i => PAID.includes(i.status)).reduce((t, i) => t + amt(i), 0);
+  const outstanding = invoicesData.filter(i => UNPAID.includes(i.status)).reduce((t, i) => t + amt(i), 0);
+  const rate = total ? Math.round((paid / total) * 100) : 0;
+
+  const m = el('div', 'ins-metrics');
+  [['Collection rate', rate + '%'], ['Outstanding', money(outstanding, cur)]].forEach(([k, v]) => {
+    const c = el('div', 'ins-metric'); c.appendChild(el('span', '', k)); c.appendChild(el('b', '', v)); m.appendChild(c);
+  });
+  box.appendChild(m);
+
+  const weeks = [];
+  const base = weekStart(new Date());
+  for (let k = 5; k >= 0; k--){
+    const s = new Date(base); s.setDate(s.getDate() - 7 * k);
+    weeks.push({key: fmtDate(s), label: s.toLocaleDateString('en-GB', {day: 'numeric', month: 'short'}), invoiced: 0, paid: 0});
+  }
+  invoicesData.forEach(i => {
+    if (!i.invoice_date) return;
+    const w = weeks.find(x => x.key === fmtDate(weekStart(new Date(i.invoice_date + 'T00:00:00'))));
+    if (!w) return;
+    w.invoiced += amt(i);
+    if (PAID.includes(i.status)) w.paid += amt(i);
+  });
+  const max = Math.max(1, ...weeks.map(w => w.invoiced));
+
+  const chartBlock = el('div', 'block');
+  chartBlock.appendChild(el('div', 'sec-title', 'Weekly invoicing'));
+  const chart = el('div', 'chart');
+  weeks.forEach(w => {
+    const col = el('div', 'chart-col');
+    col.title = `Week of ${w.label}: invoiced ${money(w.invoiced, cur)}, paid ${money(w.paid, cur)}`;
+    const bars = el('div', 'bars');
+    const b1 = el('span', 'bar inv'); b1.style.height = (w.invoiced / max * 100) + '%';
+    const b2 = el('span', 'bar paid'); b2.style.height = (w.paid / max * 100) + '%';
+    bars.append(b1, b2); col.appendChild(bars); chart.appendChild(col);
+  });
+  chartBlock.appendChild(chart);
+  const labels = el('div', 'chart-labels');
+  weeks.forEach(w => labels.appendChild(el('span', '', w.label)));
+  chartBlock.appendChild(labels);
+  const lg = el('div', 'legend');
+  lg.innerHTML = '<span><i style="background:#bfdbfe"></i>Invoiced</span><span><i style="background:#10b981"></i>Paid</span>';
+  chartBlock.appendChild(lg);
+  box.appendChild(chartBlock);
+
+  const owed = {};
+  invoicesData.filter(i => UNPAID.includes(i.status)).forEach(i => { owed[i.client] = (owed[i.client] || 0) + amt(i); });
+  const top = Object.entries(owed).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  if (top.length){
+    const ob = el('div', 'block');
+    ob.appendChild(el('div', 'sec-title', 'Most outstanding'));
+    top.forEach(([name, v]) => {
+      const r = el('div', 'owed'); r.appendChild(el('span', '', name)); r.appendChild(el('b', '', money(v, cur))); ob.appendChild(r);
+    });
+    box.appendChild(ob);
+  }
+
+  const ai = el('div', 'ai-box');
+  ai.appendChild(el('span', 'ai-label', 'AI summary'));
+  if (aiSummary) ai.appendChild(el('p', '', aiSummary));
+  const btn = el('button', 'btn sm primary', aiLoading ? 'Analyzing...' : (aiSummary ? 'Refresh summary' : 'Generate AI summary'));
+  btn.type = 'button'; btn.disabled = aiLoading;
+  btn.onclick = async () => {
+    aiLoading = true; renderInsights();
+    try { aiSummary = (await api('/api/insights/summary', {method: 'POST'})).summary; }
+    catch (e) { aiSummary = 'Could not generate summary: ' + e.message; }
+    aiLoading = false; renderInsights();
+  };
+  ai.appendChild(btn);
+  box.appendChild(ai);
+}
+
+/* ---------- Autopilot ---------- */
+function updateApPill(){
+  const p = $('#ap-pill'); if (!apData) return;
+  const n = apData.queue.length, on = apData.settings.enabled;
+  p.className = 'ap-pill ' + (n ? 'pending' : on ? 'on' : 'off');
+  p.textContent = n ? `${n} awaiting approval` : on ? 'Autopilot on' : 'Autopilot off';
+}
+async function loadAutopilot(){
+  try { apData = await api('/api/autopilot'); } catch { return; }
+  renderNav();
+  updateApPill();
+  if (view === 'autopilot') renderAutopilot();
+}
+async function saveAp(patch){
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  apNote = '';
+  try {
+    await api('/api/autopilot/settings', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(patch)
+    });
+  } catch (e) { apNote = 'Could not save that setting. Please check the value.'; }
+  await loadAutopilot();
+}
+function apField(label, control, hint, wide){
+  const f = el('label', 'field' + (wide ? ' wide' : ''));
+  f.appendChild(el('span', '', label));
+  f.appendChild(control);
+  if (hint) f.appendChild(el('small', '', hint));
+  return f;
+}
+function numInput(val, min, max, step, key){
+  const i = document.createElement('input');
+  i.type = 'number'; i.value = val; i.min = min; i.max = max; i.step = step;
+  i.onchange = () => {
+    let v = parseFloat(i.value);
+    if (isNaN(v)) { loadAutopilot(); return; }
+    v = Math.min(max, Math.max(min, v));
+    saveAp({[key]: v});
+  };
+  return i;
+}
+function renderAutopilot(){
+  const box = $('#autopilot');
+  const a = document.activeElement;
+  if (a && box.contains(a) && ['INPUT', 'SELECT'].includes(a.tagName)) return;
+  box.replaceChildren();
+  if (!apData){ box.appendChild(el('p', 'hint', 'Loading...')); return; }
+  const s = apData.settings;
+
+  const settings = el('div', 'block');
+  const head = el('div', 'ap-head');
+  const info = el('div');
+  info.appendChild(el('b', '', 'Autopilot'));
+  info.appendChild(el('small', '', s.enabled ? 'Checking overdue invoices every 30 seconds' : 'Off. Nothing happens unless you ask.'));
+  const sw = el('label', 'switch');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.checked = s.enabled;
+  cb.setAttribute('aria-label', 'Turn Autopilot on or off');
+  cb.onchange = () => saveAp({enabled: cb.checked});
+  sw.append(cb, el('span', 'slider'));
+  head.append(info, sw);
+  settings.appendChild(head);
+
+  const g = el('div', 'ap-grid');
+  const modeSel = document.createElement('select');
+  [['ask', 'Ask me before sending'], ['auto', 'Send automatically']].forEach(([v, t]) => {
+    const o = el('option', '', t); o.value = v; if (s.mode === v) o.selected = true; modeSel.appendChild(o);
+  });
+  modeSel.onchange = () => saveAp({mode: modeSel.value});
+  g.appendChild(apField('When a reminder is due', modeSel, '', true));
+  g.appendChild(apField('Start after (days late)', numInput(s.min_days_overdue, 1, 90, 1, 'min_days_overdue')));
+  g.appendChild(apField('Wait between reminders (days)', numInput(s.cooldown_days, 1, 60, 1, 'cooldown_days')));
+  g.appendChild(apField('Auto-send limit (amount)', numInput(s.auto_limit, 0, 100000, 10, 'auto_limit'), 'Bigger amounts always need your approval', true));
+  settings.appendChild(g);
+  settings.appendChild(el('p', 'ap-note', 'Guardrails: at most 3 reminders per check, never twice within the wait period, and the tone gets firmer as an invoice gets later.'));
+
+  const run = el('div', 'ap-run');
+  const rb = el('button', 'btn sm primary', apBusy ? 'Checking...' : 'Run check now');
+  rb.type = 'button'; rb.disabled = apBusy;
+  rb.onclick = async () => {
+    apBusy = true; apNote = ''; renderAutopilot();
+    try {
+      const r = await api('/api/autopilot/run', {method: 'POST'});
+      if (r.busy) apNote = 'Another check is already running.';
+      else apNote = `Check done: ${r.queued} drafted for approval, ${r.sent} sent automatically.` + (s.enabled ? '' : ' Autopilot is off, so nothing is sent without your approval.');
+    } catch (e) { apNote = 'Check failed: ' + e.message; }
+    apBusy = false; await loadAutopilot();
+  };
+  run.appendChild(rb);
+  if (apNote) run.appendChild(el('span', 'ap-status', apNote));
+  settings.appendChild(run);
+  box.appendChild(settings);
+
+  const qb = el('div', 'block');
+  qb.appendChild(el('div', 'sec-title', `Awaiting your approval (${apData.queue.length})`));
+  if (!apData.queue.length){
+    qb.appendChild(el('p', 'hint', 'Nothing waiting. Run a check to see what Autopilot would do.'));
+  }
+    apData.queue.forEach(q => {
+    const card = el('div', 'ap-card');
+    const topRow = el('div', 'ap-card-top');
+    const l = el('div');
+    l.appendChild(el('b', '', q.client));
+    l.appendChild(el('small', '', `#${q.number} · ${q.days_late} days late · ${q.tone} tone`));
+    topRow.append(l, el('b', '', money(q.amount, q.currency)));
+    card.appendChild(topRow);
+    if (q.reason) card.appendChild(el('div', 'promise-note', q.reason));
+    card.appendChild(el('div', 'ap-msg', q.note));
+    const row = el('div', 'actions');
+    const ok = el('button', 'btn sm primary', 'Approve and send');
+    const no = el('button', 'btn sm', 'Dismiss');
+    ok.type = no.type = 'button';
+    ok.onclick = async () => {
+      ok.disabled = no.disabled = true; ok.textContent = 'Sending...';
+      try {
+        await api('/api/autopilot/approve/' + q.id, {method: 'POST'});
+        apNote = `Reminder sent for invoice ${q.number}.`;
+      } catch (e) { apNote = 'Could not send: ' + e.message; }
+      await loadAutopilot();
+    };
+    no.onclick = async () => {
+      ok.disabled = no.disabled = true;
+      try { await api('/api/autopilot/dismiss/' + q.id, {method: 'POST'}); apNote = ''; } catch {}
+      await loadAutopilot();
+    };
+    row.append(ok, no); card.appendChild(row);
+    qb.appendChild(card);
+  });
+  box.appendChild(qb);
+
+  const lb = el('div', 'block');
+  lb.appendChild(el('div', 'sec-title', 'Audit log'));
+  if (!apData.log.length){
+    lb.appendChild(el('p', 'hint', 'Every action Autopilot takes is recorded here.'));
+  }
+  apData.log.forEach(entry => {
+    const r = el('div', 'log-item');
+    r.appendChild(el('i', 'ld ' + entry.kind));
+    const t = el('div');
+    t.appendChild(document.createTextNode(entry.text));
+    t.appendChild(el('small', '', new Date(entry.time).toLocaleTimeString()));
+    r.appendChild(t);
+    lb.appendChild(r);
+  });
+  box.appendChild(lb);
+}
+
+async function loadPromises(){
+  try {
+    const d = await api('/api/promises');
+    promisesData = {};
+    d.forEach(p => { promisesData[p.invoice_id] = p; });
+  } catch (e) { /* keep last state */ }
+}
+
+function refresh(){
+  loadPromises().then(loadInvoices);
+  loadEvents();
+  loadAutopilot();
+}
+
+/* ---------- Voice input ---------- */
+(function(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $('#mic'), langBtn = $('#lang');
+  if (!SR){ mic.style.display = 'none'; langBtn.style.display = 'none'; return; }
+  const rec = new SR();
+  const LANGS = [['en-IN', 'EN'], ['hi-IN', 'हिं']];
+  let li = 0, on = false, base = '';
+  rec.lang = LANGS[0][0]; rec.interimResults = true; rec.continuous = false;
+  rec.onresult = e => {
+    let t = '';
+    for (const r of e.results) t += r[0].transcript;
+    input.value = (base + ' ' + t).trim(); resizeInput();
+  };
+  rec.onend = () => { on = false; mic.classList.remove('rec'); input.focus(); };
+  rec.onerror = () => { on = false; mic.classList.remove('rec'); };
+  langBtn.onclick = () => {
+    if (on) rec.stop();
+    li = (li + 1) % LANGS.length;
+    rec.lang = LANGS[li][0];
+    langBtn.textContent = LANGS[li][1];
+  };
+  mic.onclick = () => {
+    if (on){ rec.stop(); return; }
+    base = input.value;
+    try { rec.start(); on = true; mic.classList.add('rec'); } catch {}
+  };
+})();
+
+/* ---------- Init ---------- */
+[
+  'Invoice Rahul Sharma (rahul@example.com) $400 for logo design, due in 10 days',
+  'Who has not paid me yet?',
+  'Rahul ko 400 dollar ka invoice bhejo, logo design ke liye'
+].forEach(t => {
+  const b = el('button', 'chip', t); b.type = 'button'; b.onclick = () => send(t);
+  $('#chips').appendChild(b);
+});
+
+$('#form').addEventListener('submit', e => { e.preventDefault(); send(input.value); });
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(input.value); }
+});
+input.addEventListener('input', resizeInput);
+$('#ap-pill').onclick = () => openView('autopilot');
+
+openView('assistant');
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

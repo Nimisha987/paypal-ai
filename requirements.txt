@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+httpx
+pydantic[email]
+python-dotenv
+openai
+segno
+mcp
